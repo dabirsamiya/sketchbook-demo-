@@ -1,19 +1,38 @@
-import { sql } from "drizzle-orm";
+import { NextResponse } from "next/server";
 import { db } from "@/db";
+import { newsletterSubscribers } from "@/db/schema";
 
-export async function GET() {
+export async function POST(request: Request) {
   try {
+    const body = await request.json();
+    const email = body?.email?.trim();
+
+    if (!email) {
+      return NextResponse.json(
+        { success: false, error: "Email is required" },
+        { status: 400 }
+      );
+    }
+
     if (!db) {
-      return Response.json(
-        { ok: false, error: "Database not configured" },
+      return NextResponse.json(
+        { success: false, error: "Database not configured" },
         { status: 503 }
       );
     }
 
-    await db.execute(sql`select 1`);
+    await db
+      .insert(newsletterSubscribers)
+      .values({ email })
+      .onConflictDoNothing();
 
-    return Response.json({ ok: true });
-  } catch {
-    return Response.json({ ok: false }, { status: 500 });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Could not save newsletter subscription", error);
+
+    return NextResponse.json(
+      { success: false, error: "Could not subscribe" },
+      { status: 500 }
+    );
   }
 }
